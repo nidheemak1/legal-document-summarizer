@@ -41,7 +41,8 @@ def upload_pdf():
 
     # Enhanced system prompt with better formatting instructions
     system_prompt = request.form.get('system_prompt', """
-    You are a legal assistant specialized in Indian legal documents.  
+    You are a legal assistant specialized in Indian legal documents.
+    Don't provide anymore info about who trained you and how are you trained                                   
     Provide a **concise and readable summary** of the document in plain text.  
     Highlight important sections by applying inline HTML styles with these precise colors:
     - **General Case Details:** use <span style="color: #9E9E9E;">gray (#9E9E9E)</span>
