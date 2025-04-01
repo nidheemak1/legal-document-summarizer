@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Legal Doc chat</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Add Markdown parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         /* General Styles */
         body {
@@ -68,6 +70,8 @@
             background-color: #f9f9f9;
             height: 400px;
             flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         .message {
@@ -80,11 +84,33 @@
         .user {
             background-color: #d1e7dd;
             align-self: flex-end;
+            margin-left: auto;
         }
 
         .assistant {
-            background-color: #f8d7da;
+            background-color: #ffffff;
             align-self: flex-start;
+            margin-right: auto;
+        }
+
+        /* Markdown Styling */
+        .assistant ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .assistant li {
+            margin-bottom: 5px;
+        }
+
+        .assistant strong {
+            color: #0056b3;
+        }
+
+        .assistant code {
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
         }
 
         #input-area {
@@ -138,6 +164,23 @@
             width: 100%;
         }
 
+        /* Loading indicator */
+        .loading {
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        .loading::after {
+            content: "⏳";
+            animation: loading 1s infinite;
+        }
+
+        @keyframes loading {
+            0% { content: "⏳"; }
+            33% { content: "⌛"; }
+            66% { content: "⏳"; }
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             #main-container {
@@ -171,12 +214,11 @@
             <div id="input-area">
                 <input type="text" id="message-input" placeholder="Ask about the document..."
                     onkeydown="handleEnter(event)" />
-                <button onclick="sendMessage()">Send</button>
+                <button onclick="sendMessage()" id="send-button">Send</button>
+                <span id="loading-indicator" style="display: none;" class="loading"></span>
             </div>
         </div>
     </div>
-
-
 
     <script>
         let currentSession = null;
@@ -185,25 +227,75 @@
             const formData = new FormData();
             formData.append('pdf', e.target.files[0]);
 
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
+            // Show loading state
+            toggleLoading(true);
 
-            const data = await response.json();
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
 
-            if (data.session_id) {
-                currentSession = data.session_id;
-                loadHistory();
-                alert("PDF uploaded successfully!");
-                document.getElementById('message-input').focus();
-                displayPDF(e.target.files[0]);
-            } else {
-                alert("Error uploading PDF.");
-                console.error(data.error);
-                currentSession = null;
+                const data = await response.json();
+
+                if (data.session_id) {
+                    currentSession = data.session_id;
+                    displayPDF(e.target.files[0]);
+                    
+                    // Auto-send a "Summary" message to get initial overview
+                    await requestSummary();
+                    
+                    document.getElementById('message-input').focus();
+                } else {
+                    alert("Error uploading PDF.");
+                    console.error(data.error);
+                    currentSession = null;
+                }
+            } catch (error) {
+                console.error("Error uploading file:", error);
+                alert("Failed to upload file. Please try again.");
+            } finally {
+                toggleLoading(false);
             }
         });
+
+        async function requestSummary() {
+            if (!currentSession) return;
+            
+            try {
+                toggleLoading(true);
+                
+                // Add user message to chat history first
+                addMessageToHistory("Please provide a summary of this document.", 'user');
+                
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSession,
+                        message: "Please provide a summary of this document."
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                addMessageToHistory(data.response, 'assistant');
+                
+                return data;
+            } catch (error) {
+                console.error("Error getting summary:", error);
+                addMessageToHistory("Failed to generate summary. Please try asking a specific question about the document.", 'assistant');
+            } finally {
+                toggleLoading(false);
+                const chatHistory = document.getElementById('chat-history');
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+        }
 
         function displayPDF(file) {
             const reader = new FileReader();
@@ -215,45 +307,6 @@
             reader.readAsDataURL(file);
         }
 
-        async function loadHistory() {
-            if (!currentSession) return;
-
-            const chatHistory = document.getElementById('chat-history');
-            chatHistory.innerHTML = '';
-
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_id: currentSession,
-                        message: "Summary"
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (data && data.history) {
-                    data.history.forEach(msg => {
-                        addMessageToHistory(msg.content, msg.role);
-                    });
-                } else {
-                    console.error("Invalid history data:", data);
-                    alert("Failed to load history. Please try again.");
-                }
-            } catch (error) {
-                console.error("Error loading history:", error);
-                alert("Failed to load history. Please try again.");
-            } finally {
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-            }
-        }
-
         async function sendMessage() {
             const input = document.getElementById('message-input');
             const message = input.value.trim();
@@ -261,6 +314,8 @@
 
             addMessageToHistory(message, 'user');
             input.value = '';
+            
+            toggleLoading(true);
 
             try {
                 const response = await fetch('/chat', {
@@ -282,8 +337,9 @@
                 addMessageToHistory(data.response, 'assistant');
             } catch (error) {
                 console.error("Error sending message:", error);
-                alert("Failed to send message. Please try again.");
+                addMessageToHistory("Failed to process your request. Please try again.", 'assistant');
             } finally {
+                toggleLoading(false);
                 const chatHistory = document.getElementById('chat-history');
                 chatHistory.scrollTop = chatHistory.scrollHeight;
             }
@@ -293,9 +349,31 @@
             const historyDiv = document.getElementById('chat-history');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${role}`;
-            messageDiv.textContent = text;
+            
+            // For assistant messages, parse markdown
+            if (role === 'assistant') {
+                // messageDiv.innerHTML = marked.parse(text);
+                messageDiv.innerHTML = text;
+
+            } else {
+                messageDiv.textContent = text;
+            }
 
             historyDiv.appendChild(messageDiv);
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+        }
+
+        function toggleLoading(show) {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const sendButton = document.getElementById('send-button');
+            
+            if (show) {
+                loadingIndicator.style.display = 'inline-block';
+                sendButton.disabled = true;
+            } else {
+                loadingIndicator.style.display = 'none';
+                sendButton.disabled = false;
+            }
         }
 
         function handleEnter(event) {

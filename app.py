@@ -6,42 +6,17 @@ import os
 import tempfile
 import PyPDF2
 from datetime import datetime
-#New update 28 march
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import fitz  # PyMuPDF
 
 # Load pre-trained Legal-BERT model
 tokenizer = AutoTokenizer.from_pretrained("nlpaueb/legal-bert-base-uncased")
 model = AutoModelForSequenceClassification.from_pretrained("nlpaueb/legal-bert-base-uncased")
 
-# Tokenize input text
-text = "The payment terms specify that invoices must be paid within 30 days."
-inputs = tokenizer(text, return_tensors="pt")
-
-# Predict clause category
-outputs = model(**inputs)
-predicted_class = outputs.logits.argmax(-1).item()
-print("Predicted Clause Category:", predicted_class)
-
-import fitz  # PyMuPDF
-
-# Open PDF file
-# doc = fitz.open("legal_document.pdf")
-
-# # Iterate through pages and highlight specific text
-# for page in doc:
-#     text_instances = page.search_for("Payment Terms")
-#     for inst in text_instances:
-#         highlight = page.add_highlight_annot(inst)
-#         highlight.update()
-
-# Save highlighted PDF
-# doc.save("highlighted_document.pdf")
-#New update 28 march
-
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')
+gen_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # Chat store initialization
 def load_chat_store():
@@ -55,66 +30,6 @@ chat_store = load_chat_store()
 def index():
     return render_template('index.html')
 
-# @app.route('/upload', methods=['POST'])
-# def upload_pdf():
-#     if 'pdf' not in request.files:
-#         return jsonify({"error": "No file uploaded"}), 400
-
-#     pdf_file = request.files['pdf']
-#     if pdf_file.filename == '':
-#         return jsonify({"error": "Empty filename"}), 400
-
-#         # Enhanced system prompt with color codes
-    
-    
-#     system_prompt = request.form.get('system_prompt', """You are a legal assistant specializing in **concise** analysis of Indian legal documents.  
-# Your task is to **identify key clauses** and **summarize them in a few words**, ensuring clarity and brevity.  
-
-# ### **Response Format:**  
-# - **Clause Title:** [Brief Name]  
-# - **Category:** [Color Emoji + Short Label]  
-# - **Risk Warning (⚠ if applicable):** [1-line risk insight]  
-
-# ### **Color Codes:**  
-# 🟢 Green → Standard financial clauses  
-# 🔵 Blue → Security-related clauses  
-# 🟡 Yellow → Duration/termination clauses  
-# 🟠 Orange → Property usage clauses  
-# 🔴 Red → Penalty clauses  
-# ⚪ White → General info  
-
-# ### **Risk Warnings (⚠) for:**  
-# - High penalties, short notices, tenant restrictions, liability waivers, auto-renewals  
-
-# **🚀 Keep the response ultra-concise!** No lengthy explanations—just key takeaways.  
-# """)
-
-
-#     # Save PDF temporarily
-#     temp_path = os.path.join(app.config['UPLOAD_FOLDER'], pdf_file.filename)
-#     pdf_file.save(temp_path)
-
-#     # Extract text
-#     with open(temp_path, "rb") as f:
-#         pdf_reader = PyPDF2.PdfReader(f)
-#         text = "\n".join([page.extract_text() for page in pdf_reader.pages])
-
-#     # Create session ID using filename + timestamp
-#     session_id = f"{pdf_file.filename}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-#     # Store PDF text as system message
-#     chat_store.add_message(
-#         session_id,
-#         {"role": "system", "content": f"{system_prompt}\nPDF Context:\n{text}"}
-#     )
-#     chat_store.persist(persist_path="chats.json")
-
-#     return jsonify({
-#         "session_id": session_id,
-#         "filename": pdf_file.filename
-#     })
-
-
 @app.route('/upload', methods=['POST'])
 def upload_pdf():
     if 'pdf' not in request.files:
@@ -124,18 +39,22 @@ def upload_pdf():
     if pdf_file.filename == '':
         return jsonify({"error": "Empty filename"}), 400
 
-     # Enhanced system prompt with color codes in Markdown format
+    # Enhanced system prompt with better formatting instructions
     system_prompt = request.form.get('system_prompt', """
-You are a legal assistant specializing in **concise** analysis of Indian legal documents.  
-Your task is to **identify key clauses** and **summarize them in a few words**, ensuring clarity and brevity.  
+    You are a legal assistant specialized in Indian legal documents.  
+    Provide a **concise and readable summary** of the document in plain text.  
+    Highlight important sections by applying inline HTML styles with these precise colors:
+    - **General Case Details:** use <span style="color: #9E9E9E;">gray (#9E9E9E)</span>
+    - **Penalty / Warnings:** use <span style="color: #F44336;">red (#F44336)</span>
+    - **Disputes / Legal Proceedings:** use <span style="color: #FFC107;">amber (#FFC107)</span>
+    - **Court / Tribunal Orders (Decisions, Directions):** use <span style="color: #2196F3;">blue (#2196F3)</span>
+    - **Positive Resolutions (Refunds, Withdrawals):** use <span style="color: #4CAF50;">green (#4CAF50)</span>
 
-### **Response Format:**  
-- **Clause Title:** `[Brief Name]`  
-  - **Category:** `[Color Emoji + Short Label]`  
-  - **Risk Warning (⚠ if applicable):** `[1-line risk insight]`  
+    Return only the summary in plain text with inline HTML color tags (e.g., <span style="color: #F44336;">important text</span>) and no extra structure or bullet lists.
 
-.  
-""")
+    **PDF Context:**
+    [The extracted text of the PDF will be here]
+    """)
 
 
     # Save PDF temporarily
@@ -150,7 +69,7 @@ Your task is to **identify key clauses** and **summarize them in a few words**, 
     # Create session ID using filename + timestamp
     session_id = f"{pdf_file.filename}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-    # Store PDF text as system message (assuming chat_store is defined elsewhere)
+    # Store PDF text as system message
     chat_store.add_message(
         session_id,
         {"role": "system", "content": f"{system_prompt}\n\n**PDF Context:**\n\n{text}"}
@@ -161,8 +80,6 @@ Your task is to **identify key clauses** and **summarize them in a few words**, 
         "session_id": session_id,
         "filename": pdf_file.filename
     })
-
-
 
 @app.route('/chat', methods=['POST'])
 def handle_chat():
@@ -176,22 +93,19 @@ def handle_chat():
     # Get conversation history
     history = chat_store.get_messages(session_id)
 
-    # Extract system prompt and context from history (system messages contain PDF text)
+    # Extract system prompt and context from history
     system_context = next((msg["content"] for msg in history if msg["role"] == "system"), "You are a legal assistant helping analyze legal documents.")
-    parts = system_context.split('\n', 1)
-    system_prompt = parts[0] if len(parts) > 1 else system_context
-    context = parts[1] if len(parts) > 1 else ""
-
+    
     # Generate response with context
-    prompt = f"{system_prompt}\n{context}\n\nUser Question: {user_message}\nAssistant Answer:"
-    response = model.generate_content(prompt)
+    prompt = f"{system_context}\n\nUser Question: {user_message}\n\nAssistant Answer (use proper Markdown with line breaks between each item):"
+    response = gen_model.generate_content(prompt)
 
-    # Remove Markdown characters from the response
-    response_text = re.sub(r'\*\*([^*]+)\*\*', r'\1', response.text)  # Remove bold markdown
-
+    # Keep the Markdown formatting intact
+    response_text = response.text
+    print(response_text)
     # Store interaction
     chat_store.add_message(session_id, {"role": "user", "content": user_message})
-    chat_store.add_message(session_id, {"role": "assistant", "content": response_text})  # Store cleaned response
+    chat_store.add_message(session_id, {"role": "assistant", "content": response_text})
     chat_store.persist(persist_path="chats.json")
 
     return jsonify({
