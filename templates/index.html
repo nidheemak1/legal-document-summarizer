@@ -1,389 +1,614 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Legal Doc chat</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
     <!-- Add Markdown parser -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        /* General Styles */
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(to right, #f0f4f8, #cfd9df);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            color: #333;
+      /* General Styles */
+      body {
+        font-family: "Arial", sans-serif;
+        background: linear-gradient(to right, #f0f4f8, #cfd9df);
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+        color: #333;
+      }
+
+      #main-container {
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        width: 95%;
+        max-width: 1200px;
+        display: flex;
+        overflow: hidden;
+        margin: 20px;
+        flex: 1;
+      }
+
+      #pdf-viewer {
+        flex: 1;
+        padding: 20px;
+        border-right: 1px solid #ddd;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #pdf-preview {
+        width: 100%;
+        height: 600px;
+        border: none;
+      }
+
+      /* Ensure the chat container doesn't grow too large */
+      #chat-section {
+        flex: 1;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between; /* Ensure chat content pushes input area down */
+        overflow: hidden; /* Hide overflow */
+      }
+      h1 {
+        text-align: center;
+        color: #007bff;
+        font-size: 28px;
+        margin-bottom: 20px;
+      }
+
+      #chat-history {
+        border: 1px solid #007bff;
+        border-radius: 5px;
+        padding: 10px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        background-color: #f9f9f9;
+        height: 100vh; /* Fixed height */
+        max-height: 100vh; /* Responsive max height */
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+
+        /* Custom Scrollbar - Webkit browsers (Chrome, Safari, newer Edge) */
+        &::-webkit-scrollbar {
+          width: 8px; /* Width of the scrollbar */
         }
 
+        &::-webkit-scrollbar-track {
+          background: #f1f1f1; /* Track color */
+          border-radius: 4px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+          background: #007bff; /* Thumb color */
+          border-radius: 4px;
+        }
+
+        &::-webkit-scrollbar-thumb:hover {
+          background: #0056b3; /* Thumb hover color */
+        }
+
+        /* For Firefox */
+        scrollbar-width: thin;
+        scrollbar-color: #007bff #f1f1f1;
+      }
+
+      /* Make sure messages don't break the layout */
+      .message {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 5px;
+        max-width: 80%;
+        word-wrap: break-word; /* Ensure words wrap */
+        overflow-wrap: break-word;
+      }
+
+      .user {
+        background-color: #d1e7dd;
+        align-self: flex-end;
+        margin-left: auto;
+      }
+
+      .assistant {
+        background-color: #ffffff;
+        align-self: flex-start;
+        margin-right: auto;
+        line-height: 1.5;
+      }
+
+      .assistant p {
+        margin: 8px 0;
+      }
+
+      /* Markdown Styling */
+      .assistant ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .assistant li {
+        margin-bottom: 5px;
+      }
+
+      .assistant strong {
+        color: #0056b3;
+      }
+
+      .assistant code {
+        background-color: #f0f0f0;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+
+      #input-area {
+        display: flex;
+        align-items: center;
+        position: sticky; 
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: white; /* Ensure proper contrast */
+        padding: 10px;
+        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1); /* Slight shadow for better distinction */
+      }
+
+      input[type="text"] {
+        flex: 1;
+        padding: 12px;
+        border-radius: 5px;
+        border: 1px solid #007bff;
+        margin-right: 10px;
+      }
+
+      button {
+        padding: 12px 20px;
+        border-radius: 5px;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      #upload-area {
+        margin-bottom: 20px;
+      }
+
+      input[type="file"] {
+        width: calc(100% - 20px);
+        padding: 12px;
+        border-radius: 5px;
+        border: 1px solid #007bff;
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 14px;
+        color: #555;
+        font-style: italic;
+        position: fixed;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+      }
+
+      /* Loading indicator */
+      .loading {
+        display: inline-block;
+        margin-left: 10px;
+      }
+
+      .loading::after {
+        content: "⏳";
+        animation: loading 1s infinite;
+      }
+
+      @keyframes loading {
+        0% {
+          content: "⏳";
+        }
+        33% {
+          content: "⌛";
+        }
+        66% {
+          content: "⏳";
+        }
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
         #main-container {
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            width: 95%;
-            max-width: 1200px;
-            display: flex;
-            overflow: hidden;
-            margin: 20px;
-            flex: 1;
+          flex-direction: column;
         }
 
-        #pdf-viewer {
-            flex: 1;
-            padding: 20px;
-            border-right: 1px solid #ddd;
-            overflow: auto;
-        }
-
-        #pdf-preview {
-            width: 100%;
-            height: 600px;
-            border: none;
-        }
-
+        #pdf-viewer,
         #chat-section {
-            flex: 1;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
+          width: 100%;
+          border-right: none;
         }
+      }
 
-        h1 {
-            text-align: center;
-            color: #007bff;
-            font-size: 28px;
-            margin-bottom: 20px;
-        }
+      /* Color code legend */
+      .color-legend {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+      }
 
-        #chat-history {
-            border: 1px solid #007bff;
-            border-radius: 5px;
-            padding: 10px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            background-color: #f9f9f9;
-            height: 400px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
+      .color-legend h3 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-size: 16px;
+        text-align: center;
+      }
 
-        .message {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 5px;
-            max-width: 80%;
-        }
+      .color-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+      }
 
-        .user {
-            background-color: #d1e7dd;
-            align-self: flex-end;
-            margin-left: auto;
-        }
+      .color-box {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+        border-radius: 3px;
+      }
 
-        .assistant {
-            background-color: #ffffff;
-            align-self: flex-start;
-            margin-right: auto;
-        }
+      /* Message tools */
+      .message-tools {
+        display: flex;
+        justify-content: flex-end;
+        font-size: 0.8em;
+        margin-top: 5px;
+      }
 
-        /* Markdown Styling */
-        .assistant ul {
-            margin: 0;
-            padding-left: 20px;
-        }
+      .suggestion-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 15px;
+      }
 
-        .assistant li {
-            margin-bottom: 5px;
-        }
+      .suggestion-chip {
+        background-color: #e3f2fd;
+        border: 1px solid #90caf9;
+        border-radius: 16px;
+        padding: 6px 12px;
+        font-size: 0.9em;
+        cursor: pointer;
+      }
 
-        .assistant strong {
-            color: #0056b3;
-        }
-
-        .assistant code {
-            background-color: #f0f0f0;
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-
-        #input-area {
-            display: flex;
-            align-items: center;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            padding: 12px;
-            border-radius: 5px;
-            border: 1px solid #007bff;
-            margin-right: 10px;
-        }
-
-        button {
-            padding: 12px 20px;
-            border-radius: 5px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        #upload-area {
-            margin-bottom: 20px;
-        }
-
-        input[type="file"] {
-            width: calc(100% - 20px);
-            padding: 12px;
-            border-radius: 5px;
-            border: 1px solid #007bff;
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 14px;
-            color: #555;
-            font-style: italic;
-            position: fixed;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
-        }
-
-        /* Loading indicator */
-        .loading {
-            display: inline-block;
-            margin-left: 10px;
-        }
-
-        .loading::after {
-            content: "⏳";
-            animation: loading 1s infinite;
-        }
-
-        @keyframes loading {
-            0% { content: "⏳"; }
-            33% { content: "⌛"; }
-            66% { content: "⏳"; }
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            #main-container {
-                flex-direction: column;
-            }
-
-            #pdf-viewer,
-            #chat-section {
-                width: 100%;
-                border-right: none;
-            }
-        }
+      .suggestion-chip:hover {
+        background-color: #bbdefb;
+      }
     </style>
-</head>
+  </head>
 
-<body>
-
+  <body>
     <div id="main-container">
-        <div id="pdf-viewer">
-            <h1>Legal Document</h1>
-            <input type="file" id="pdf-upload" accept=".pdf" />
+      <div id="pdf-viewer">
+        <h1>Legal Document</h1>
+        <input type="file" id="pdf-upload" accept=".pdf" />
 
-            <iframe id="pdf-preview" src="" frameborder="0"></iframe>
+        <iframe id="pdf-preview" src="" frameborder="0"></iframe>
+
+        <!-- Color Legend -->
+        <div class="color-legend">
+          <h3>Color Code Guide</h3>
+          <div class="color-item">
+            <div class="color-box" style="background-color: #9e9e9e"></div>
+            <span>General Case Details</span>
+          </div>
+          <div class="color-item">
+            <div class="color-box" style="background-color: #f44336"></div>
+            <span>Penalty / Warnings</span>
+          </div>
+          <div class="color-item">
+            <div class="color-box" style="background-color: #ffc107"></div>
+            <span>Disputes / Legal Proceedings</span>
+          </div>
+          <div class="color-item">
+            <div class="color-box" style="background-color: #2196f3"></div>
+            <span>Court / Tribunal Orders</span>
+          </div>
+          <div class="color-item">
+            <div class="color-box" style="background-color: #4caf50"></div>
+            <span>Positive Resolutions</span>
+          </div>
         </div>
+      </div>
 
-        <div id="chat-section">
-            <h1>Chat with LegalDocs</h1>
+      <div id="chat-section">
+        <h1>Chat with LegalDocs</h1>
 
-            <div id="chat-history"></div>
+        <div id="chat-history"></div>
 
-            <div id="input-area">
-                <input type="text" id="message-input" placeholder="Ask about the document..."
-                    onkeydown="handleEnter(event)" />
-                <button onclick="sendMessage()" id="send-button">Send</button>
-                <span id="loading-indicator" style="display: none;" class="loading"></span>
-            </div>
+        <div id="input-area">
+          <input
+            type="text"
+            id="message-input"
+            placeholder="Ask about the document..."
+            onkeydown="handleEnter(event)"
+          />
+          <button onclick="sendMessage()" id="send-button">Send</button>
+          <span
+            id="loading-indicator"
+            style="display: none"
+            class="loading"
+          ></span>
         </div>
+      </div>
     </div>
 
     <script>
-        let currentSession = null;
+      let currentSession = null;
 
-        document.getElementById('pdf-upload').addEventListener('change', async (e) => {
-            const formData = new FormData();
-            formData.append('pdf', e.target.files[0]);
+      // Add these suggested questions
+      const suggestedQuestions = [
+        "What are the key points in this document?",
+        "What are the legal issues mentioned?",
+        "Are there any penalties or warnings in this document?",
+        "What resolutions or decisions are mentioned?",
+        "What is the background of this case?",
+      ];
 
-            // Show loading state
-            toggleLoading(true);
+      document
+        .getElementById("pdf-upload")
+        .addEventListener("change", async (e) => {
+          const formData = new FormData();
+          formData.append("pdf", e.target.files[0]);
 
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+          // Show loading state
+          toggleLoading(true);
 
-                const data = await response.json();
+          try {
+            const response = await fetch("/upload", {
+              method: "POST",
+              body: formData,
+            });
 
-                if (data.session_id) {
-                    currentSession = data.session_id;
-                    displayPDF(e.target.files[0]);
-                    
-                    // Auto-send a "Summary" message to get initial overview
-                    await requestSummary();
-                    
-                    document.getElementById('message-input').focus();
-                } else {
-                    alert("Error uploading PDF.");
-                    console.error(data.error);
-                    currentSession = null;
-                }
-            } catch (error) {
-                console.error("Error uploading file:", error);
-                alert("Failed to upload file. Please try again.");
-            } finally {
-                toggleLoading(false);
+            const data = await response.json();
+
+            if (data.session_id) {
+              currentSession = data.session_id;
+              displayPDF(e.target.files[0]);
+
+              // Auto-send a "Summary" message to get initial overview
+              await requestSummary();
+
+              // Show suggested questions after summary
+              showSuggestedQuestions();
+
+              document.getElementById("message-input").focus();
+            } else {
+              alert("Error uploading PDF.");
+              console.error(data.error);
+              currentSession = null;
             }
+          } catch (error) {
+            console.error("Error uploading file:", error);
+            alert("Failed to upload file. Please try again.");
+          } finally {
+            toggleLoading(false);
+          }
         });
 
-        async function requestSummary() {
-            if (!currentSession) return;
-            
-            try {
-                toggleLoading(true);
-                
-                // Add user message to chat history first
-                addMessageToHistory("Please provide a summary of this document.", 'user');
-                
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_id: currentSession,
-                        message: "Please provide a summary of this document."
-                    })
-                });
+      // Show suggested questions after summary
+      function showSuggestedQuestions() {
+        if (!currentSession) return;
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
+        const historyDiv = document.getElementById("chat-history");
+        const suggestionsDiv = document.createElement("div");
+        suggestionsDiv.className = "suggestion-chips";
 
-                const data = await response.json();
-                addMessageToHistory(data.response, 'assistant');
-                
-                return data;
-            } catch (error) {
-                console.error("Error getting summary:", error);
-                addMessageToHistory("Failed to generate summary. Please try asking a specific question about the document.", 'assistant');
-            } finally {
-                toggleLoading(false);
-                const chatHistory = document.getElementById('chat-history');
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-            }
+        suggestedQuestions.forEach((question) => {
+          const chip = document.createElement("div");
+          chip.className = "suggestion-chip";
+          chip.textContent = question;
+          chip.onclick = () => {
+            document.getElementById("message-input").value = question;
+            sendMessage();
+          };
+          suggestionsDiv.appendChild(chip);
+        });
+
+        historyDiv.appendChild(suggestionsDiv);
+        historyDiv.scrollTop = historyDiv.scrollHeight;
+      }
+
+      async function requestSummary() {
+        if (!currentSession) return;
+
+        try {
+          toggleLoading(true);
+
+          // Add user message to chat history first
+          addMessageToHistory(
+            "Please provide a summary of this document.",
+            "user"
+          );
+
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              session_id: currentSession,
+              message: "Please provide a summary of this document.",
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          addMessageToHistory(data.response, "assistant");
+
+          return data;
+        } catch (error) {
+          console.error("Error getting summary:", error);
+          addMessageToHistory(
+            "Failed to generate summary. Please try asking a specific question about the document.",
+            "assistant"
+          );
+        } finally {
+          toggleLoading(false);
+          const chatHistory = document.getElementById("chat-history");
+          chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+      }
+
+      function displayPDF(file) {
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+          const pdfPreview = document.getElementById("pdf-preview");
+          pdfPreview.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      async function sendMessage() {
+        const input = document.getElementById("message-input");
+        const message = input.value.trim();
+        if (!message) return;
+
+        if (!currentSession) {
+          addMessageToHistory("Please upload a document first.", "assistant");
+          return;
         }
 
-        function displayPDF(file) {
-            const reader = new FileReader();
+        addMessageToHistory(message, "user");
+        input.value = "";
 
-            reader.onload = function (e) {
-                const pdfPreview = document.getElementById('pdf-preview');
-                pdfPreview.src = e.target.result;
-            }
-            reader.readAsDataURL(file);
+        toggleLoading(true);
+
+        try {
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              session_id: currentSession,
+              message,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          addMessageToHistory(data.response, "assistant");
+        } catch (error) {
+          console.error("Error sending message:", error);
+          addMessageToHistory(
+            "Failed to process your request. Please try again.",
+            "assistant"
+          );
+        } finally {
+          toggleLoading(false);
+          const chatHistory = document.getElementById("chat-history");
+          chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+      }
+
+      function addMessageToHistory(text, role) {
+        const historyDiv = document.getElementById("chat-history");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${role}`;
+
+        if (role === "assistant") {
+          // Don't use marked.parse since we're using HTML directly
+          messageDiv.innerHTML = text;
+
+          // Add copy button for assistant messages
+          const toolsDiv = document.createElement("div");
+          toolsDiv.className = "message-tools";
+
+          const copyBtn = document.createElement("span");
+          copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+          copyBtn.style.cursor = "pointer";
+          copyBtn.style.marginLeft = "10px";
+          copyBtn.onclick = () => {
+            navigator.clipboard.writeText(text).then(() => {
+              copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+              setTimeout(() => {
+                copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+              }, 2000);
+            });
+          };
+
+          toolsDiv.appendChild(copyBtn);
+          messageDiv.appendChild(toolsDiv);
+        } else {
+          messageDiv.textContent = text;
         }
 
-        async function sendMessage() {
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-            if (!message || !currentSession) return;
+        historyDiv.appendChild(messageDiv);
+        historyDiv.scrollTop = historyDiv.scrollHeight;
+      }
 
-            addMessageToHistory(message, 'user');
-            input.value = '';
-            
-            toggleLoading(true);
+      function toggleLoading(show) {
+        const loadingIndicator = document.getElementById("loading-indicator");
+        const sendButton = document.getElementById("send-button");
 
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_id: currentSession,
-                        message
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                addMessageToHistory(data.response, 'assistant');
-            } catch (error) {
-                console.error("Error sending message:", error);
-                addMessageToHistory("Failed to process your request. Please try again.", 'assistant');
-            } finally {
-                toggleLoading(false);
-                const chatHistory = document.getElementById('chat-history');
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-            }
+        if (show) {
+          loadingIndicator.style.display = "inline-block";
+          sendButton.disabled = true;
+        } else {
+          loadingIndicator.style.display = "none";
+          sendButton.disabled = false;
         }
+      }
 
-        function addMessageToHistory(text, role) {
-            const historyDiv = document.getElementById('chat-history');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${role}`;
-            
-            // For assistant messages, parse markdown
-            if (role === 'assistant') {
-                // messageDiv.innerHTML = marked.parse(text);
-                messageDiv.innerHTML = text;
-
-            } else {
-                messageDiv.textContent = text;
-            }
-
-            historyDiv.appendChild(messageDiv);
-            historyDiv.scrollTop = historyDiv.scrollHeight;
+      function handleEnter(event) {
+        if (event.key === "Enter") {
+          event.preventDefault(); // Prevent form submission
+          sendMessage();
         }
+      }
 
-        function toggleLoading(show) {
-            const loadingIndicator = document.getElementById('loading-indicator');
-            const sendButton = document.getElementById('send-button');
-            
-            if (show) {
-                loadingIndicator.style.display = 'inline-block';
-                sendButton.disabled = true;
-            } else {
-                loadingIndicator.style.display = 'none';
-                sendButton.disabled = false;
-            }
+      // Add function to handle when PDF is not properly loaded
+      function checkPdfStatus() {
+        const pdfPreview = document.getElementById("pdf-preview");
+        if (!pdfPreview.src || pdfPreview.src === "about:blank") {
+          addMessageToHistory(
+            "Please upload a PDF document to begin. I can help you understand legal documents by highlighting key information with color coding as shown in the guide.",
+            "assistant"
+          );
         }
+      }
 
-        function handleEnter(event) {
-            if (event.key === "Enter") {
-                event.preventDefault();  // Prevent form submission
-                sendMessage();
-            }
-        }
+      // Call this when page loads
+      window.onload = function () {
+        checkPdfStatus();
+        document.getElementById("message-input").placeholder =
+          "Upload a document first...";
+      };
     </script>
-
-</body>
-
+  </body>
 </html>
